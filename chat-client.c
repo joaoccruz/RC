@@ -14,6 +14,32 @@ void handleStdin(char *buff){
 	fprintf(stderr, "%s", buff);
 }
 
+int isValidMessage(char *buff){
+	for(int i = 0; i < strlen(buff); i++){
+		if(buff[i] == '\n')
+			return 1;
+	}
+	return 0;
+}
+
+
+int handleFd(int fdNum, fd_set *fdList){
+
+	char buffer[BUFF_SIZE] = {0};
+	
+	if(FD_ISSET(fdNum, fdList)){
+		int num = read(fdNum, buffer, BUFF_SIZE-1);
+		if(!num)
+			return 1;
+
+		if(isValidMessage(buffer)){
+			handleStdin(buffer);
+		}
+		FD_CLR(fdNum, fdList);
+	}
+	
+	return 0;
+}
 int main(int argc, char const *argv[]){
 	
 	// Arg validation
@@ -46,7 +72,6 @@ int main(int argc, char const *argv[]){
 	}
 
 	fd_set fdList;
-	char buffer[BUFF_SIZE];
 
 	for(;;){
 		FD_ZERO(&fdList);
@@ -55,16 +80,19 @@ int main(int argc, char const *argv[]){
 
 	
 		int rcvFD = select(socketFD+1, &fdList, NULL, NULL, NULL);		
-		
-		if(FD_ISSET(1, &fdList)){
-			read(1, buffer, BUFF_SIZE-1);
-			handleStdin(buffer);
+
+		if(rcvFD <= 0){
+			fprintf(stderr, "DEBUG: RECV FAIL\n");
+			return -1;
 		}
+
+		if(handleFd(1, &fdList))
+			break;
 		
-		if(FD_ISSET(socketFD, &fdList)){
-			read(socketFD, buffer, BUFF_SIZE-1);
-			handleStdin(buffer);
-		}
+		
+		if(handleFd(socketFD, &fdList))
+			break;
+		
 
 		FD_ZERO(&fdList);
 	}
