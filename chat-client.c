@@ -10,6 +10,7 @@
 #define BUFF_SIZE 4097
 #define address struct sockaddr_in  
 
+int socketFD;
 void handleStdin(char *buff){
 	fprintf(stderr, "%s", buff);
 }
@@ -33,8 +34,13 @@ int handleFd(int fdNum, fd_set *fdList){
 			return 1;
 
 		if(isValidMessage(buffer)){
-			handleStdin(buffer);
+			if(fdNum != 1){
+				handleStdin(buffer);
+			}else{
+				write(socketFD, buffer, BUFF_SIZE);		
+			}
 		}
+
 		FD_CLR(fdNum, fdList);
 	}
 	
@@ -48,7 +54,7 @@ int main(int argc, char const *argv[]){
 	}
 
 	// Socket is created
-	int socketFD = socket(AF_INET, SOCK_STREAM, 0);
+	socketFD = socket(AF_INET, SOCK_STREAM, 0);
 	if(socketFD < 0){
 		fprintf(stderr, "DEBUG: SOCKET CREATE FAIL %d\n", socketFD);
 		return -1;
