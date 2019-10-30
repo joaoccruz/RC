@@ -6,21 +6,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#define BUFF_SIZE 4097
-#define address struct sockaddr_in  
+#include "common.h"
 
 int socketFD;
 void handleStdin(char *buff){
 	fprintf(stderr, "%s", buff);
-}
-
-int isValidMessage(char *buff){
-	for(int i = 0; i < strlen(buff); i++){
-		if(buff[i] == '\n')
-			return 1;
-	}
-	return 0;
 }
 
 
@@ -46,6 +36,9 @@ int handleFd(int fdNum, fd_set *fdList){
 	
 	return 0;
 }
+
+
+
 int main(int argc, char const *argv[]){
 	
 	// Arg validation
@@ -65,7 +58,7 @@ int main(int argc, char const *argv[]){
 	address serverAddress;
 
 	serverAddress.sin_family = AF_INET;
-	serverAddress.sin_addr.s_addr = inet_addr("127.0.0.1"); 
+	serverAddress.sin_addr.s_addr = inet_addr(argv[1]); 
 	serverAddress.sin_port = htons(PORT);
 
 
