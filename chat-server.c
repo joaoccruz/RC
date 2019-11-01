@@ -83,6 +83,102 @@ int main(int argc , char *argv[]){
 					}
 				}
 				/*
+
+				address* realAdd = (address*)&clientAddr;
+				struct in_addr ipAddr = realAdd->sin_addr;
+
+
+				char clientAddrStr[BUFF_SIZE];
+				inet_ntop(AF_INET, &ipAddr, clientAddrStr, INET_ADDRSTRLEN);
+
+				int netPort = ntohs(realAdd->sin_port);
+*/
+				clientNum++;
+				FD_SET(newClient, &fdList);
+				FD_SET(newClient, &writeFdl);
+			}
+
+		}
+
+
+		/*while(newClient){
+			printf("%d\n", newClient);
+			if(newClient < 0){
+				fprintf(stderr, "DEBUG: ACCEPT FAIL\n");
+				return -1;
+			}
+
+			char buffer[BUFF_SIZE];
+
+			for(int i = 0; i < clientNum; i++){
+				if(clientList[i]){
+					fprintf(stderr, "SENDING HI TO %d\n", clientList[i]);
+					write(clientList[i], "hi\n", 2);
+					int error_code = 0;
+					int error_code_size = sizeof(error_code);
+					getsockopt(clientList[i], SOL_SOCKET, SO_ERROR, &error_code, &error_code_size);
+					if(error_code){
+						clientList[i] = 0;
+					}
+
+				}
+
+			}
+
+			clientList[clientNum++] = newClient;
+			newClient = accept(socketFD, clientAddr, &a);
+			puts("AA");
+		}*/
+
+	}
+	close(socketFD);
+	return 0;
+}
+/*
+	//set of socket descriptors
+
+
+	//initialise all client_socket[] to 0 so not checked
+	memset(0, client_socket, 1000);
+
+	fd_set fdList;
+	fd_set writeFdl;
+	int clientList[1000] = {0};
+	int clientNum = 0;
+	int fdlSize = socketFD+1;
+	FD_ZERO(&fdList);
+	FD_ZERO(&writeFdl);
+
+	FD_SET(socketFD, &fdList);
+
+	for(;;){
+
+		if (select(fdlSize, &fdList, &writeFdl, NULL, NULL) < 0){
+			return -1;
+		}
+
+		for(int i = 0; i < fdlSize; i++){
+			if(FD_ISSET(i, &fdList)){
+
+				struct sockaddr *clientAddr;
+				int a;
+				int newClient = accept(socketFD, clientAddr, &a);
+				clientList[clientNum] = newClient;
+
+				// INFORM
+				for(int j = 0; j < clientNum; j++){
+					if(clientList[j]){
+						write(clientList[j], "hi\n", 3);
+						printf("%d\n", FD_ISSET(clientList[j], &fdList));
+						int error_code = 0;
+						int error_code_size = sizeof(error_code);
+						getsockopt(clientList[j], SOL_SOCKET, SO_ERROR, &error_code, &error_code_size);
+						if(error_code){
+							clientList[j] = 0;
+						}
+					}
+				}
+				/*
 				address* realAdd = (address*)&clientAddr;
 				struct in_addr ipAddr = realAdd->sin_addr;
 
