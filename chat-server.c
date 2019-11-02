@@ -190,6 +190,7 @@ int main(int argc , char *argv[]){
 				address* realAdd = (address*)&clientAddr;
 				struct in_addr ipAddr = realAdd->sin_addr;
 
+
 				char clientAddrStr[BUFF_SIZE];
 				inet_ntop(AF_INET, &ipAddr, clientAddrStr, INET_ADDRSTRLEN);
 				int netPort = ntohs(realAdd->sin_port);
