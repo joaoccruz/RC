@@ -1,7 +1,7 @@
 TARGETS = file-sender file-receiver
 
 CC = gcc
-CFLAGS = -Wall -Werror -O3
+#CFLAGS = -Wall -Werror -O3
 
 default: $(TARGETS)
 

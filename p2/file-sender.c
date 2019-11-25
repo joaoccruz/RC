@@ -17,11 +17,40 @@
 #define HOSTNAME argv[2]
 #define PORTARG  argv[3]
 #define WINDOW_SIZE argv[4]
+
+#define max(a,b) a > b ? a:b 
+
 int getFileSize(const char *filename){
 	struct stat st;
 	stat(filename, &st);
 	return st.st_size;
 
+}
+
+void generatePackets(int totalNumPackets, data_pkt_t *myPackets, FILE *fp){
+	for(int i = 0; i < totalNumPackets;){
+		int n, lastPacket;
+		if(++i < totalNumPackets){
+			n = 1000;
+		}else{
+			n = lastPacket; 
+		}
+
+		char buffer[1000];
+		fgets(myPackets[i-1].data, 1000, fp);
+		
+		myPackets[i-1].seq_num = i;
+		
+		
+	}
+
+}
+
+void sendChunks(data_pkt_t *myPackets,int begin,int windowSize,int s,int *currentAcks){
+	for(int i = 0; i < windowSize; i++){
+		send(s, (void *) &myPackets[begin+i], sizeof(data_pkt_t), 0);
+		fprintf(stderr, "sent %s\n", myPackets[begin+i].data);
+	}
 }
 
 int main(int argc, char const *argv[]){
@@ -60,27 +89,55 @@ int main(int argc, char const *argv[]){
 		perror("SOCKET FAIL");
 		return -1;
 	}
-
-	if(bind(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0){
-		
-		perror("BIND FAIL");
+	struct timeval timeout;
+	timeout.tv_sec = 5*TIMEOUT;
+	timeout.tv_usec = 0;
+	
+	setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval*)&timeout, sizeof(struct timeval));
+	
+	
+	int sockLen = sizeof(servaddr);
+	if(connect(sockfd, (struct sockaddr *)&servaddr, sockLen) < 0){
+		perror("SOCKET FAIL");
 		return -1;
 	}
 
 	fp = fopen(FILENAME, "r");
 
 
-	int seqNum = 0;
+	int seqNum = 1;
 	int fileSize = getFileSize(FILENAME);
 	int numPackets = fileSize / CHUNK_SIZE;
 	int lastPacket = fileSize % CHUNK_SIZE;
-	
-	if(seqNum && window_size && host && fp && numPackets && lastPacket){
-		;
+
+	int totalNumPackets = numPackets+(lastPacket>0);
+	data_pkt_t myPackets[totalNumPackets];
+
+	generatePackets(totalNumPackets, myPackets, fp);
+
+	for(int i = 0; i < totalNumPackets; i++){
+		printf("%s", myPackets[i].data);	
 	}
 
 
+	char *acks = malloc(totalNumPackets * sizeof(char));
+	memset(acks, 0, totalNumPackets*sizeof(char));
 
+	sleep(1);
+	sendChunks(myPackets, 0, window_size, sockfd, 0);
+	char buffer[1000];
+
+	int r;
+	//int r = recv(sockfd, buffer, 1000, 0);
+	
+
+	if(r){
+		fprintf(stderr, "%s\n", buffer);
+
+	}else{
+		fprintf(stderr, "something went wrong\n");
+	}
+	fprintf(stderr,"%s\n", "exiting");
 	return 0;
 
 }
