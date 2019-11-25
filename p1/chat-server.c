@@ -125,7 +125,7 @@ int main(int argc , char *argv[]){
 				char toSend[BUFF_SIZE];
 				if(r == 0){
 					clientList[i] = 0;
-					sprintf(toSend, "%shas disconnected\n",clientData[i] );
+					sprintf(toSend, "%sleft\n",clientData[i] );
 				}else{
 					strcpy(toSend, clientData[i]);
 					last = strlen(clientData[i]);

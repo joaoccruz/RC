@@ -30,7 +30,7 @@ int handleFd(int fdNum, fd_set *fdList){
 	char buffer[BUFF_SIZE] = {0};
 
 	if(FD_ISSET(fdNum, fdList)){
-		int num = read(fdNum, buffer, BUFF_SIZE-1);
+		int num = recv(fdNum, buffer, BUFF_SIZE-1,0);
 		if(!num)
 			return 1;
 
@@ -38,7 +38,7 @@ int handleFd(int fdNum, fd_set *fdList){
 			if(fdNum != 1){
 				handleStdin(buffer);
 			}else{
-				write(socketFD, buffer, BUFF_SIZE);
+				send(socketFD, buffer, BUFF_SIZE,0 );
 			}
 		}
 
@@ -68,7 +68,7 @@ int main(int argc, char const *argv[]){
 	long PORT = strtol(argv[2], NULL, 10);
 
 	address serverAddress;
-	struct hostent *h = gethostbyname("localhost");
+	struct hostent *h = gethostbyname(argv[1]);
 	if(!h)
 		return -1;
 

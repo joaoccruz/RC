@@ -75,21 +75,33 @@ echo "Running project."
 
 ./chat-server 1234 >/dev/null 2>/dev/null &
 SERVER_PID=$!
+sleep .1
 
-(sleep .5) | ./chat-client localhost 1234 >chat-client.out 2>/dev/null &
+mkfifo rclient.in
+cat rclient.in | ./chat-client localhost 1234 >chat-client.out 2>/dev/null &
 RCLIENT_PID=$!
 sleep .1
-RCLIENT_IPPORT=$(netstat -np 2>/dev/null | awk "\$7 == \"$RCLIENT_PID/./chat-client\" {print \$4}")
+RCLIENT_IPPORT=$(netstat -np 2>/dev/null | awk "\$7 ~ /$RCLIENT_PID\\/.*chat-client/ {print \$4}")
+if [ -z "$RCLIENT_IPPORT" ]; then
+  echo "Error getting client IP and port."
+  exit
+fi
 
 (echo Test; sleep .3) | ./chat-client localhost 1234 >/dev/null 2>/dev/null &
 SCLIENT_PID=$!
 sleep .1
-SCLIENT_IPPORT=$(netstat -np 2>/dev/null | awk "\$7 == \"$SCLIENT_PID/./chat-client\" {print \$4}")
+SCLIENT_IPPORT=$(netstat -np 2>/dev/null | awk "\$7 ~ /$SCLIENT_PID\\/.*chat-client/ {print \$4}")
+if [ -z "$SCLIENT_IPPORT" ]; then
+  echo "Error getting client IP and port."
+  exit
+fi
 
+sleep .5
 wait $SCLIENT_PID || true
+echo > rclient.in
+wait $RCLIENT_PID || true
 kill $SERVER_PID
 wait $SERVER_PID 2>/dev/null || true
-wait $RCLIENT_PID || true
 
 echo -ne "Checking output format...\t"
 if diff chat-client.out - <<EOF
