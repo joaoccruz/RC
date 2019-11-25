@@ -49,7 +49,7 @@ void generatePackets(int totalNumPackets, data_pkt_t *myPackets, FILE *fp){
 void sendChunks(data_pkt_t *myPackets,int begin,int windowSize,int s,int *currentAcks){
 	for(int i = 0; i < windowSize; i++){
 		send(s, (void *) &myPackets[begin+i], sizeof(data_pkt_t), 0);
-		fprintf(stderr, "sent %s\n", myPackets[begin+i].data);
+		//fprintf(stderr, "sent %s\n", myPackets[begin+i].data);
 	}
 }
 
@@ -98,7 +98,7 @@ int main(int argc, char const *argv[]){
 	
 	int sockLen = sizeof(servaddr);
 	if(connect(sockfd, (struct sockaddr *)&servaddr, sockLen) < 0){
-		perror("SOCKET FAIL");
+		perror("CONNECT FAIL");
 		return -1;
 	}
 
@@ -127,9 +127,8 @@ int main(int argc, char const *argv[]){
 	sendChunks(myPackets, 0, window_size, sockfd, 0);
 	char buffer[1000];
 
-	int r;
 	//int r = recv(sockfd, buffer, 1000, 0);
-	
+	int r;
 
 	if(r){
 		fprintf(stderr, "%s\n", buffer);

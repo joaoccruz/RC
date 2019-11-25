@@ -10,7 +10,7 @@
 
 int main(int argc, char const *argv[]){
 
-	FILE *fp;
+	FILE *fp = fopen(argv[1], "w");
 	int sockfd, window_size;
 	long port;
 	struct sockaddr_in servaddr, cliaddr;
@@ -44,13 +44,13 @@ int main(int argc, char const *argv[]){
 	char test[1000];
 	strcpy(test, "works");
 	while(!exit){
-		fprintf(stderr, "receiver listening\n");
 		int sockLen = sizeof(servaddr);
 		recv(sockfd, buffer, sizeof(data_pkt_t), 0);
 		data_pkt_t *casted = (data_pkt_t *)buffer;
-		
-		fprintf(stderr, "received %s\n", casted->data);
-		send(sockfd, test, 1000, 0);
+		//fprintf(stderr, "%s\n",casted->data );
+		fprintf(fp, "%s", casted->data);
+
+		//send(sockfd, test, 1000, 0);
 	}
 
 	return 0;
