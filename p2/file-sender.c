@@ -46,9 +46,9 @@ void generatePackets(int totalNumPackets, data_pkt_t *myPackets, FILE *fp){
 
 }
 
-void sendChunks(data_pkt_t *myPackets,int begin,int windowSize,int s,int *currentAcks){
+void sendChunks(data_pkt_t *myPackets, int begin, int windowSize,int s, int *currentAcks, struct sockaddr *servaddr){
 	for(int i = 0; i < windowSize; i++){
-		send(s, (void *) &myPackets[begin+i], sizeof(data_pkt_t), 0);
+		sendto(s, (void *) &myPackets[begin+i], sizeof(data_pkt_t), 0, servaddr, sizeof(*servaddr));
 		//fprintf(stderr, "sent %s\n", myPackets[begin+i].data);
 	}
 }
@@ -56,20 +56,17 @@ void sendChunks(data_pkt_t *myPackets,int begin,int windowSize,int s,int *curren
 int main(int argc, char const *argv[]){
 
 	FILE *fp;
-	int sockfd;
+	int sockfd, recvSockFd;
 	struct hostent *host = gethostbyname(HOSTNAME);
-
 	if(!host){
 		perror("gethostbyname");
 	}
 
 	long port = strtol(PORTARG, NULL, 10);
 	int window_size = strtol(WINDOW_SIZE, NULL, 10);
-	struct sockaddr_in servaddr, cliaddr;
+	struct sockaddr_in servaddr;
 
-	memset(&servaddr, 0, sizeof(servaddr)); 
-    memset(&cliaddr, 0, sizeof(cliaddr)); 
-
+	
 
     HOSTNAME = inet_ntoa(*((struct in_addr*) 
                            host->h_addr_list[0]));
@@ -89,18 +86,15 @@ int main(int argc, char const *argv[]){
 		perror("SOCKET FAIL");
 		return -1;
 	}
+
 	struct timeval timeout;
 	timeout.tv_sec = 5*TIMEOUT;
 	timeout.tv_usec = 0;
 	
 	setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval*)&timeout, sizeof(struct timeval));
 	
-	
 	int sockLen = sizeof(servaddr);
-	if(connect(sockfd, (struct sockaddr *)&servaddr, sockLen) < 0){
-		perror("CONNECT FAIL");
-		return -1;
-	}
+	
 
 	fp = fopen(FILENAME, "r");
 
@@ -124,12 +118,14 @@ int main(int argc, char const *argv[]){
 	memset(acks, 0, totalNumPackets*sizeof(char));
 
 	sleep(1);
-	sendChunks(myPackets, 0, window_size, sockfd, 0);
-	char buffer[1000];
+	sendChunks(myPackets, 0, window_size, sockfd, 0, (struct sockaddr *)&servaddr);
+	char buffer[1000] = "AA";
 
-	//int r = recv(sockfd, buffer, 1000, 0);
-	int r;
-
+	unsigned int len = sizeof(servaddr);
+	int r = 0;
+	r = recvfrom(sockfd, buffer, 1000, 0, (struct sockaddr *)&servaddr, &len);
+	//4int r;
+	//int r;
 	if(r){
 		fprintf(stderr, "%s\n", buffer);
 
