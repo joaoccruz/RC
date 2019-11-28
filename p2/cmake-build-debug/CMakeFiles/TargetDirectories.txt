@@ -1,0 +1,4 @@
+/home/marlow/RC/Projeto/p2/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/marlow/RC/Projeto/p2/cmake-build-debug/CMakeFiles/file-receiver.dir
+/home/marlow/RC/Projeto/p2/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/marlow/RC/Projeto/p2/cmake-build-debug/CMakeFiles/file-sender.dir
