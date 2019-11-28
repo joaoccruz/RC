@@ -19,37 +19,28 @@
 #define WINDOW_SIZE argv[4]
 
 #define max(a,b) a > b ? a:b 
+#define min(a,b) a < b ? a:b 
 
-int getFileSize(const char *filename){
+int getFileSize(const char *fn){
 	struct stat st;
-	stat(filename, &st);
+	stat(fn, &st);
 	return st.st_size;
 
 }
 
 void generatePackets(int totalNumPackets, data_pkt_t *myPackets, FILE *fp){
-	for(int i = 0; i < totalNumPackets;){
-		int n, lastPacket;
-		if(++i < totalNumPackets){
-			n = 1000;
-		}else{
-			n = lastPacket; 
-		}
-
-		char buffer[1000];
-		fgets(myPackets[i-1].data, 1000, fp);
-		
-		myPackets[i-1].seq_num = i;
-		
-		
+	for(int i = 0; i < totalNumPackets; i++){
+		fgets(myPackets[i].data, 1000, fp);
+		myPackets[i].seq_num = htonl(i + 1);	
 	}
 
 }
 
-void sendChunks(data_pkt_t *myPackets, int begin, int windowSize,int s, int *currentAcks, struct sockaddr *servaddr){
-	for(int i = 0; i < windowSize; i++){
-		sendto(s, (void *) &myPackets[begin+i], sizeof(data_pkt_t), 0, servaddr, sizeof(*servaddr));
-		//fprintf(stderr, "sent %s\n", myPackets[begin+i].data);
+void sendChunks(data_pkt_t *myPackets, int begin, int end,int sock, int currentAcks, struct sockaddr *servaddr){
+	for(int i = begin; i < end; i++){
+		fprintf(stderr, "SENDER: sent %li bytes with seqnum %d\n", strlen(myPackets[i].data), ntohl(myPackets[i].seq_num));
+		sendto(sock, (void *) &myPackets[i], sizeof(data_pkt_t), 0, servaddr, sizeof(struct sockaddr));
+	
 	}
 }
 
@@ -62,6 +53,7 @@ int main(int argc, char const *argv[]){
 		perror("gethostbyname");
 	}
 
+	const char *fn = argv[1];
 	long port = strtol(PORTARG, NULL, 10);
 	int window_size = strtol(WINDOW_SIZE, NULL, 10);
 	struct sockaddr_in servaddr;
@@ -78,61 +70,98 @@ int main(int argc, char const *argv[]){
     servaddr.sin_port = htons(port); 
 
 	if(argc != 5){
-		fprintf(stderr, "%s\n", "INVALID ARGUMENTS");
+		fprintf(stderr, "SENDER: %s\n", "INVALID ARGUMENTS");
 		return -1;
 	}
 
 	if((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
-		perror("SOCKET FAIL");
+		perror("SENDER: SOCKET FAIL");
 		return -1;
 	}
 
 	struct timeval timeout;
-	timeout.tv_sec = 5*TIMEOUT;
+	timeout.tv_sec = TIMEOUT/1000;
 	timeout.tv_usec = 0;
 	
-	setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval*)&timeout, sizeof(struct timeval));
+	setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval));
 	
 	int sockLen = sizeof(servaddr);
 	
 
-	fp = fopen(FILENAME, "r");
+	fp = fopen(fn, "r");
 
 
 	int seqNum = 1;
 	int fileSize = getFileSize(FILENAME);
+	fprintf(stderr, "SENDER: Filesize is %d\n",fileSize );
 	int numPackets = fileSize / CHUNK_SIZE;
 	int lastPacket = fileSize % CHUNK_SIZE;
 
-	int totalNumPackets = numPackets+(lastPacket>0);
-	data_pkt_t myPackets[totalNumPackets];
+	int totalNumPackets = ++numPackets;
+	int toAdd = 0;
+	if(fileSize % CHUNK_SIZE == 0){
+		toAdd = 1; 
+	}
+	
+	data_pkt_t *myPackets = malloc(sizeof(struct data_pkt_t) * totalNumPackets);
 
+	fprintf(stderr, "SENDER: Generating %d packets\n", totalNumPackets);
 	generatePackets(totalNumPackets, myPackets, fp);
 
+	if(toAdd){
+		data_pkt_t temp = { htonl(totalNumPackets), ""};
+		myPackets = realloc(myPackets, (totalNumPackets)*sizeof(myPackets[0]));
+		myPackets[totalNumPackets-1] = temp;
+		fprintf(stderr, "SENDER: Added empty packet to tail\n");
+	}
 	for(int i = 0; i < totalNumPackets; i++){
 		printf("%s", myPackets[i].data);	
 	}
 
 
+
+	ack_pkt_t currentWindowState = {1, 0b0};
+
 	char *acks = malloc(totalNumPackets * sizeof(char));
 	memset(acks, 0, totalNumPackets*sizeof(char));
 
-	sleep(1);
-	sendChunks(myPackets, 0, window_size, sockfd, 0, (struct sockaddr *)&servaddr);
-	char buffer[1000] = "AA";
+
+
+
+	ack_pkt_t ack;
 
 	unsigned int len = sizeof(servaddr);
 	int r = 0;
-	r = recvfrom(sockfd, buffer, 1000, 0, (struct sockaddr *)&servaddr, &len);
-	//4int r;
-	//int r;
-	if(r){
-		fprintf(stderr, "%s\n", buffer);
 
-	}else{
-		fprintf(stderr, "something went wrong\n");
+	int failCounter = 0;
+	
+	int begin = 0;
+	while(1){
+		fprintf(stderr, "SENDER: Begin is %d, totalNumPackets is %d\n", begin, totalNumPackets);
+		if(begin == totalNumPackets){
+			return 0;
+		}
+
+		if(failCounter > MAX_RETRIES){
+			fprintf(stderr, "SENDER: Failed too many times, exiting\n");
+			return -1;
+		}
+
+		int end = min(begin + window_size, totalNumPackets);
+
+		sendChunks(myPackets, begin, end, sockfd, 0, (struct sockaddr *)&servaddr);
+		r = recvfrom(sockfd, &ack, sizeof(struct ack_pkt_t), 0, (struct sockaddr *)&servaddr, &len);
+		
+		if(r == -1 || r == 0){
+			// Timeout, probably
+			failCounter++;
+			continue;
+		}
+
+		begin = ntohl(ack.seq_num) - 1;
+
 	}
-	fprintf(stderr,"%s\n", "exiting");
+
 	return 0;
 
 }

@@ -1,0 +1,1 @@
+/usr/bin/cc -g   CMakeFiles/hw1_p2.dir/file-receiver.c.o CMakeFiles/hw1_p2.dir/file-sender.c.o  -o hw1_p2 
