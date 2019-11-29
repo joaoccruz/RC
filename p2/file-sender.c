@@ -27,21 +27,37 @@ int getFileSize(const char *fn){
 	return st.st_size;
 
 }
-
+/*
 void generatePackets(int totalNumPackets, data_pkt_t *myPackets, FILE *fp){
 	for(int i = 0; i < totalNumPackets; i++){
 		fgets(myPackets[i].data, 1000, fp);
 		myPackets[i].seq_num = htonl(i + 1);	
 	}
 
+}*/
+
+void generateChunks(int totalNumPackets, data_pkt_t *myPackets, FILE *fp){
+	for(int i = 0; i < totalNumPackets; i++){
+		memset(myPackets[i].data, 0, 1000);
+		fread(&(myPackets[i].data), 999, 1, fp);
+		myPackets[i].seq_num = htonl(i + 1);
+		fprintf(stderr, "SENDER: chunk %d generated out of %d with size %li\n", i, totalNumPackets, strlen(myPackets[i].data));
+	}
+	
 }
 
-void sendChunks(data_pkt_t *myPackets, int begin, int end,int sock, int currentAcks, struct sockaddr *servaddr){
+uint32_t sendChunks(data_pkt_t *myPackets, int begin, int end,int sock, int currentAcks, struct sockaddr *servaddr){
+	int ret = currentAcks;
 	for(int i = begin; i < end; i++){
+		if(1 & currentAcks){
+			fprintf(stderr, "Sender: not sending %d\n", i);
+			continue;
+		}
+		currentAcks > 1;
 		fprintf(stderr, "SENDER: sent %li bytes with seqnum %d\n", strlen(myPackets[i].data), ntohl(myPackets[i].seq_num));
-		sendto(sock, (void *) &myPackets[i], sizeof(data_pkt_t), 0, servaddr, sizeof(struct sockaddr));
-	
+		sendto(sock, (void *) &myPackets[i], sizeof(data_pkt_t), 0, servaddr, sizeof(struct sockaddr));	
 	}
+	return ret;
 }
 
 int main(int argc, char const *argv[]){
@@ -94,36 +110,31 @@ int main(int argc, char const *argv[]){
 	int seqNum = 1;
 	int fileSize = getFileSize(FILENAME);
 	fprintf(stderr, "SENDER: Filesize is %d\n",fileSize );
-	int numPackets = fileSize / CHUNK_SIZE;
-	int lastPacket = fileSize % CHUNK_SIZE;
-
+	int numPackets = fileSize / (CHUNK_SIZE-1);
+	
 	int totalNumPackets = ++numPackets;
 	int toAdd = 0;
-	if(fileSize % CHUNK_SIZE == 0){
+	if(fileSize % (CHUNK_SIZE-1) == 0){
 		toAdd = 1; 
 	}
 	
 	data_pkt_t *myPackets = malloc(sizeof(struct data_pkt_t) * totalNumPackets);
 
 	fprintf(stderr, "SENDER: Generating %d packets\n", totalNumPackets);
-	generatePackets(totalNumPackets, myPackets, fp);
-
+	//generatePackets(totalNumPackets, myPackets, fp);
+	generateChunks(totalNumPackets, myPackets, fp);
 	if(toAdd){
 		data_pkt_t temp = { htonl(totalNumPackets), ""};
 		myPackets = realloc(myPackets, (totalNumPackets)*sizeof(myPackets[0]));
 		myPackets[totalNumPackets-1] = temp;
 		fprintf(stderr, "SENDER: Added empty packet to tail\n");
 	}
-	for(int i = 0; i < totalNumPackets; i++){
-		printf("%s", myPackets[i].data);	
-	}
+
 
 
 
 	ack_pkt_t currentWindowState = {1, 0b0};
 
-	char *acks = malloc(totalNumPackets * sizeof(char));
-	memset(acks, 0, totalNumPackets*sizeof(char));
 
 
 
@@ -134,11 +145,12 @@ int main(int argc, char const *argv[]){
 	int r = 0;
 
 	int failCounter = 0;
-	
+	uint32_t acks = 0;
 	int begin = 0;
 	while(1){
 		fprintf(stderr, "SENDER: Begin is %d, totalNumPackets is %d\n", begin, totalNumPackets);
 		if(begin == totalNumPackets){
+			fprintf(stderr, "SENDER: exiting...\n");
 			return 0;
 		}
 
@@ -149,16 +161,24 @@ int main(int argc, char const *argv[]){
 
 		int end = min(begin + window_size, totalNumPackets);
 
-		sendChunks(myPackets, begin, end, sockfd, 0, (struct sockaddr *)&servaddr);
-		r = recvfrom(sockfd, &ack, sizeof(struct ack_pkt_t), 0, (struct sockaddr *)&servaddr, &len);
+		uint32_t sent = sendChunks(myPackets, begin, end, sockfd, acks, (struct sockaddr *)&servaddr);
 		
-		if(r == -1 || r == 0){
-			// Timeout, probably
-			failCounter++;
-			continue;
+		for(int i = 0; i < window_size; i++){
+			r = recvfrom(sockfd, &ack, sizeof(struct ack_pkt_t), 0, (struct sockaddr *)&servaddr, &len);
+			if(1 & sent){
+				continue;
+			}
+			sent > 1;
+			
+			if(r == -1 || r == 0){
+				// Timeout, probably
+				failCounter++;
+				continue;
+			}
+			acks = ntohl(ack.selective_acks);
+			begin = ntohl(ack.seq_num) - 1;
 		}
 
-		begin = ntohl(ack.seq_num) - 1;
 
 	}
 
